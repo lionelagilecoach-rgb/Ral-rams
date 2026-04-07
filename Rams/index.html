@@ -48,12 +48,16 @@ function Section({num,title,children}){
   );
 }
 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyXIxJU1uC7sNu1tXOf2jKaH2_myRMio1WlYKqp5NAXDLHY0GE_WMh2WKI9xbm8zuNGDA/exec";
+
 function App(){
-  const today = new Date().toLocaleDateString("en-NZ");
-  const [form,setForm]=useState({projectName:"",date:today,location:"",client:"",company:"",technicians:"",teamLeader:"",description:"",equipment:"",method:"",emergency:"",ppe:""});
+  const todayStr = new Date().toLocaleDateString("en-NZ");
+  const [form,setForm]=useState({projectName:"",date:todayStr,location:"",client:"",company:"",technicians:"",teamLeader:"",description:"",equipment:"",method:"",emergency:"",ppe:""});
   const [hazards,setHazards]=useState([{hazard:"",risk:"",control:""}]);
   const [signers,setSigners]=useState([{initials:"",signed:false}]);
   const [generating,setGenerating]=useState(false);
+  const [sending,setSending]=useState(false);
+  const [toEmail,setToEmail]=useState("lionelagilecoach@gmail.com");
   const set=k=>v=>setForm(p=>({...p,[k]:v}));
   const addHazard=()=>setHazards(p=>[...p,{hazard:"",risk:"",control:""}]);
   const removeHazard=i=>setHazards(p=>p.filter((_,j)=>j!==i));
@@ -63,127 +67,123 @@ function App(){
   const setSgn=(i,k,v)=>setSigners(p=>p.map((s,j)=>j===i?{...s,[k]:v}:s));
   const allSigned=signers.every(s=>s.signed&&s.initials.trim());
 
-  const download=async()=>{
+  const buildPDF = async () => {
+    const ref="RAL-"+Date.now().toString().slice(-6);
+    const today=new Date().toLocaleDateString("en-NZ");
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+    const W=210,M=15,CW=W-M*2;
+    let y=M;
+
+    try{
+      const res=await fetch("acored-logo.png");
+      if(res.ok){
+        const b=await res.blob();
+        const ld=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(b);});
+        pdf.addImage(ld,"PNG",M,y,28,14);
+      }
+    }catch(e){}
+
+    pdf.setFont("helvetica","bold");pdf.setFontSize(24);pdf.setTextColor(17,24,39);
+    pdf.text("RAMS",W/2,y+9,{align:"center"});
+    pdf.setFont("helvetica","normal");pdf.setFontSize(10);pdf.setTextColor(100,100,100);
+    pdf.text("Rope Access Method Statement",W/2,y+15,{align:"center"});
+    pdf.setFontSize(9);
+    pdf.text("Ref: "+ref,W-M,y+6,{align:"right"});
+    pdf.text(today,W-M,y+11,{align:"right"});
+    y+=22;
+    pdf.setDrawColor(17,24,39);pdf.setLineWidth(0.8);pdf.line(M,y,W-M,y);y+=7;
+
+    const sec=(n,t)=>{if(y>260){pdf.addPage();y=M;}pdf.setFont("helvetica","bold");pdf.setFontSize(12);pdf.setTextColor(17,24,39);pdf.text(n+". "+t,M,y);y+=2;pdf.setLineWidth(0.4);pdf.line(M,y,W-M,y);y+=5;};
+    const field=(label,val)=>{if(y>272){pdf.addPage();y=M;}pdf.setFont("helvetica","bold");pdf.setFontSize(9);pdf.setTextColor(100,100,100);pdf.text(label.toUpperCase()+": ",M,y);const lw=pdf.getTextWidth(label.toUpperCase()+": ");pdf.setFont("helvetica","normal");pdf.setTextColor(37,99,235);const lines=pdf.splitTextToSize(val||"—",CW-lw);pdf.text(lines,M+lw,y);y+=lines.length*5;};
+    const body=(txt)=>{if(y>272){pdf.addPage();y=M;}pdf.setFont("helvetica","normal");pdf.setFontSize(10);pdf.setTextColor(37,99,235);const lines=pdf.splitTextToSize(txt||"—",CW);lines.forEach(l=>{if(y>275){pdf.addPage();y=M;}pdf.text(l,M,y);y+=5;});y+=2;};
+
+    sec(1,"Project Details");
+    field("Project Name",form.projectName);field("Date",form.date);
+    field("Location",form.location);field("Client / Manager",form.client);
+    field("Company",form.company);field("Technicians",form.technicians);
+    field("Team Leader",form.teamLeader);y+=2;
+    sec(2,"Description of Work");body(form.description);
+    sec(3,"Specific Rope Access Equipment");body(form.equipment);
+    sec(4,"Method Statement");body(form.method);
+
+    sec(5,"Risk Assessment");
+    if(y>220){pdf.addPage();y=M;}
+    const cw=CW/3;
+    pdf.setFillColor(17,24,39);pdf.rect(M,y,CW,8,"F");
+    pdf.setFont("helvetica","bold");pdf.setFontSize(9);pdf.setTextColor(255,255,255);
+    pdf.text("Hazard",M+2,y+5.5);pdf.text("Risk",M+cw+2,y+5.5);pdf.text("Control",M+cw*2+2,y+5.5);
+    y+=8;
+    hazards.forEach((h,i)=>{if(y>268){pdf.addPage();y=M;}pdf.setFillColor(i%2===0?255:249,249,249);pdf.rect(M,y,CW,10,"F");pdf.setDrawColor(209,213,219);pdf.setLineWidth(0.2);pdf.rect(M,y,CW,10,"S");pdf.line(M+cw,y,M+cw,y+10);pdf.line(M+cw*2,y,M+cw*2,y+10);pdf.setFont("helvetica","normal");pdf.setFontSize(9);pdf.setTextColor(17,24,39);pdf.text(pdf.splitTextToSize(h.hazard||"—",cw-4)[0],M+2,y+6.5);pdf.text(pdf.splitTextToSize(h.risk||"—",cw-4)[0],M+cw+2,y+6.5);pdf.text(pdf.splitTextToSize(h.control||"—",cw-4)[0],M+cw*2+2,y+6.5);y+=10;});y+=4;
+
+    sec(6,"Emergency / Rescue Plan");body(form.emergency);
+    sec(7,"PPE for this Specific Job");body(form.ppe);
+
+    if(y>200){pdf.addPage();y=M;}
+    sec(8,"Sign Off");
+    pdf.setFillColor(254,249,195);pdf.setDrawColor(234,179,8);pdf.setLineWidth(0.3);
+    const wt=pdf.splitTextToSize("This RAMS must reflect the actual work being carried out on site. If the scope of work, equipment, hazards, or work method changes, this document must be updated and communicated to all technicians before work continues.",CW-4);
+    const wh=wt.length*5+6;
+    pdf.rect(M,y,CW,wh,"FD");
+    pdf.setFont("helvetica","normal");pdf.setFontSize(8);pdf.setTextColor(133,79,11);
+    pdf.text(wt,M+2,y+5);y+=wh+4;
+
+    if(y>240){pdf.addPage();y=M;}
+    pdf.setDrawColor(17,24,39);pdf.setLineWidth(0.5);pdf.rect(M,y,CW,36,"S");
+    pdf.setFont("helvetica","normal");pdf.setFontSize(9);pdf.setTextColor(100,100,100);
+    pdf.text("Technician initials:",M+3,y+7);
+    let sx=M+3;
+    signers.forEach((s,i)=>{pdf.setFont("times","bold");pdf.setFontSize(22);pdf.setTextColor(17,24,39);pdf.text(s.initials.toUpperCase(),sx,y+20);pdf.setLineWidth(0.4);pdf.line(sx,y+22,sx+20,y+22);pdf.setFont("helvetica","normal");pdf.setFontSize(8);pdf.setTextColor(100,100,100);pdf.text("Tech "+(i+1),sx,y+27);sx+=26;});
+    pdf.setFontSize(8);pdf.setTextColor(100,100,100);
+    pdf.text("Signed off: "+today,M+3,y+33);y+=40;
+
+    pdf.setFont("helvetica","normal");pdf.setFontSize(8);pdf.setTextColor(150,150,150);
+    pdf.text("Document reference: "+ref+" · ACORED RAMS · Generated by RAL Forms",M,287);
+
+    return {pdf, ref, today};
+  };
+
+  const download = async () => {
     if(!allSigned){alert("All technicians must add initials and sign off before downloading.");return;}
     setGenerating(true);
     try{
-      const ref="RAL-"+Date.now().toString().slice(-6);
-      const today=new Date().toLocaleDateString("en-NZ");
-      const {jsPDF}=window.jspdf;
-      const pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
-      const W=210,M=15,CW=W-M*2;
-      let y=M;
-
-      // Logo
-      try{
-        const res=await fetch("acored-logo.png");
-        if(res.ok){
-          const b=await res.blob();
-          const ld=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(b);});
-          pdf.addImage(ld,"PNG",M,y,28,14);
-        }
-      }catch(e){}
-
-      // Header
-      pdf.setFont("helvetica","bold");pdf.setFontSize(24);pdf.setTextColor(17,24,39);
-      pdf.text("RAMS",W/2,y+9,{align:"center"});
-      pdf.setFont("helvetica","normal");pdf.setFontSize(10);pdf.setTextColor(100,100,100);
-      pdf.text("Rope Access Method Statement",W/2,y+15,{align:"center"});
-      pdf.setFontSize(9);
-      pdf.text("Ref: "+ref,W-M,y+6,{align:"right"});
-      pdf.text(today,W-M,y+11,{align:"right"});
-      y+=22;
-      pdf.setDrawColor(17,24,39);pdf.setLineWidth(0.8);pdf.line(M,y,W-M,y);y+=7;
-
-      const sec=(n,t)=>{
-        if(y>260){pdf.addPage();y=M;}
-        pdf.setFont("helvetica","bold");pdf.setFontSize(12);pdf.setTextColor(17,24,39);
-        pdf.text(n+". "+t,M,y);y+=2;
-        pdf.setLineWidth(0.4);pdf.line(M,y,W-M,y);y+=5;
-      };
-      const field=(label,val)=>{
-        if(y>272){pdf.addPage();y=M;}
-        pdf.setFont("helvetica","bold");pdf.setFontSize(9);pdf.setTextColor(100,100,100);
-        pdf.text(label.toUpperCase()+": ",M,y);
-        const lw=pdf.getTextWidth(label.toUpperCase()+": ");
-        pdf.setFont("helvetica","normal");pdf.setTextColor(37,99,235);
-        const lines=pdf.splitTextToSize(val||"—",CW-lw);
-        pdf.text(lines,M+lw,y);y+=lines.length*5;
-      };
-      const body=(txt)=>{
-        if(y>272){pdf.addPage();y=M;}
-        pdf.setFont("helvetica","normal");pdf.setFontSize(10);pdf.setTextColor(37,99,235);
-        const lines=pdf.splitTextToSize(txt||"—",CW);
-        lines.forEach(l=>{if(y>275){pdf.addPage();y=M;}pdf.text(l,M,y);y+=5;});y+=2;
-      };
-
-      sec(1,"Project Details");
-      field("Project Name",form.projectName);field("Date",form.date);
-      field("Location",form.location);field("Client / Manager",form.client);
-      field("Company",form.company);field("Technicians",form.technicians);
-      field("Team Leader",form.teamLeader);y+=2;
-
-      sec(2,"Description of Work");body(form.description);
-      sec(3,"Specific Rope Access Equipment");body(form.equipment);
-      sec(4,"Method Statement");body(form.method);
-
-      // Hazard table
-      sec(5,"Risk Assessment");
-      if(y>220){pdf.addPage();y=M;}
-      const cw=CW/3;
-      pdf.setFillColor(17,24,39);pdf.rect(M,y,CW,8,"F");
-      pdf.setFont("helvetica","bold");pdf.setFontSize(9);pdf.setTextColor(255,255,255);
-      pdf.text("Hazard",M+2,y+5.5);pdf.text("Risk",M+cw+2,y+5.5);pdf.text("Control",M+cw*2+2,y+5.5);
-      y+=8;
-      hazards.forEach((h,i)=>{
-        if(y>268){pdf.addPage();y=M;}
-        pdf.setFillColor(i%2===0?255:249,249,249);pdf.rect(M,y,CW,10,"F");
-        pdf.setDrawColor(209,213,219);pdf.setLineWidth(0.2);pdf.rect(M,y,CW,10,"S");
-        pdf.line(M+cw,y,M+cw,y+10);pdf.line(M+cw*2,y,M+cw*2,y+10);
-        pdf.setFont("helvetica","normal");pdf.setFontSize(9);pdf.setTextColor(17,24,39);
-        pdf.text(pdf.splitTextToSize(h.hazard||"—",cw-4)[0],M+2,y+6.5);
-        pdf.text(pdf.splitTextToSize(h.risk||"—",cw-4)[0],M+cw+2,y+6.5);
-        pdf.text(pdf.splitTextToSize(h.control||"—",cw-4)[0],M+cw*2+2,y+6.5);
-        y+=10;
-      });y+=4;
-
-      sec(6,"Emergency / Rescue Plan");body(form.emergency);
-      sec(7,"PPE for this Specific Job");body(form.ppe);
-
-      // Sign off
-      if(y>200){pdf.addPage();y=M;}
-      sec(8,"Sign Off");
-      pdf.setFillColor(254,249,195);pdf.setDrawColor(234,179,8);pdf.setLineWidth(0.3);
-      const wt=pdf.splitTextToSize("This RAMS must reflect the actual work being carried out on site. If the scope of work, equipment, hazards, or work method changes, this document must be updated and communicated to all technicians before work continues.",CW-4);
-      const wh=wt.length*5+6;
-      pdf.rect(M,y,CW,wh,"FD");
-      pdf.setFont("helvetica","normal");pdf.setFontSize(8);pdf.setTextColor(133,79,11);
-      pdf.text(wt,M+2,y+5);y+=wh+4;
-
-      if(y>240){pdf.addPage();y=M;}
-      pdf.setDrawColor(17,24,39);pdf.setLineWidth(0.5);pdf.rect(M,y,CW,36,"S");
-      pdf.setFont("helvetica","normal");pdf.setFontSize(9);pdf.setTextColor(100,100,100);
-      pdf.text("Technician initials:",M+3,y+7);
-      let sx=M+3;
-      signers.forEach((s,i)=>{
-        pdf.setFont("times","bold");pdf.setFontSize(22);pdf.setTextColor(17,24,39);
-        pdf.text(s.initials.toUpperCase(),sx,y+20);
-        pdf.setLineWidth(0.4);pdf.line(sx,y+22,sx+20,y+22);
-        pdf.setFont("helvetica","normal");pdf.setFontSize(8);pdf.setTextColor(100,100,100);
-        pdf.text("Tech "+(i+1),sx,y+27);sx+=26;
-      });
-      pdf.setFontSize(8);pdf.setTextColor(100,100,100);
-      pdf.text("Signed off: "+today,M+3,y+33);y+=40;
-
-      // Footer
-      pdf.setFont("helvetica","normal");pdf.setFontSize(8);pdf.setTextColor(150,150,150);
-      pdf.text("Document reference: "+ref+" · ACORED RAMS · Generated by RAL Forms",M,287);
-
+      const {pdf,ref} = await buildPDF();
       pdf.save("RAMS-"+(form.projectName||"document").replace(/\s+/g,"-")+"-"+ref+".pdf");
+    }catch(err){alert("Error: "+err.message);}
+    finally{setGenerating(false);}
+  };
+
+  const sendEmail = async () => {
+    if(!allSigned){alert("All technicians must add initials and sign off before sending.");return;}
+    if(!toEmail.trim()){alert("Please enter a recipient email.");return;}
+    setSending(true);
+    try{
+      const {pdf,ref} = await buildPDF();
+      const pdfBase64 = pdf.output("datauristring").split(",")[1];
+      const jsonData = JSON.stringify({form, hazards, signers, ref}, null, 2);
+
+      const payload = {
+        to_email: toEmail,
+        project_name: form.projectName || "RAMS",
+        ref: ref,
+        pdf_base64: pdfBase64,
+        json_data: jsonData
+      };
+
+      const res = await fetch(SCRIPT_URL, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      const result = await res.json();
+      if(result.status === "ok"){
+        alert("RAMS sent successfully to " + toEmail + "!");
+      } else {
+        alert("Error sending: " + (result.message || "Unknown error"));
+      }
     }catch(err){
       alert("Error: "+err.message);
     }finally{
-      setGenerating(false);
+      setSending(false);
     }
   };
 
@@ -294,11 +294,25 @@ function App(){
       </Section>
 
       <div style={{textAlign:"center",marginBottom:32}}>
-        <button onClick={download} disabled={generating}
-          style={{background:allSigned?"#111827":"#9ca3af",color:"#fff",border:"none",borderRadius:10,padding:"14px 40px",fontSize:15,fontWeight:700,cursor:allSigned?"pointer":"not-allowed",width:"100%",maxWidth:400}}>
-          {generating?"Generating PDF...":"⬇ Download RAMS as PDF"}
-        </button>
-        {!allSigned&&<div style={{fontSize:13,color:MUTED,marginTop:8}}>All technicians must add initials and sign off to enable download</div>}
+        {/* Email field */}
+        <div style={{marginBottom:12,maxWidth:400,margin:"0 auto 12px"}}>
+          <div style={{fontSize:13,color:MUTED,marginBottom:4,textAlign:"left"}}>Send to email</div>
+          <input type="text" value={toEmail} onChange={e=>setToEmail(e.target.value)}
+            placeholder="email@example.com"
+            style={{width:"100%",padding:"10px 12px",borderRadius:6,border:`1px solid ${BORDER}`,fontSize:14,color:TEXT,background:BG}}/>
+        </div>
+        {/* Buttons */}
+        <div style={{display:"flex",gap:10,maxWidth:400,margin:"0 auto",flexDirection:"column"}}>
+          <button onClick={sendEmail} disabled={sending||!allSigned}
+            style={{background:allSigned?"#111827":"#9ca3af",color:"#fff",border:"none",borderRadius:10,padding:"14px 40px",fontSize:15,fontWeight:700,cursor:allSigned?"pointer":"not-allowed",width:"100%"}}>
+            {sending?"Sending...":"📧 Send RAMS by email (PDF + JSON)"}
+          </button>
+          <button onClick={download} disabled={generating||!allSigned}
+            style={{background:allSigned?"#2563EB":"#9ca3af",color:"#fff",border:"none",borderRadius:10,padding:"12px 40px",fontSize:14,fontWeight:600,cursor:allSigned?"pointer":"not-allowed",width:"100%"}}>
+            {generating?"Generating...":"⬇ Download PDF only"}
+          </button>
+        </div>
+        {!allSigned&&<div style={{fontSize:13,color:MUTED,marginTop:8}}>All technicians must add initials and sign off to enable</div>}
       </div>
     </div>
   );
