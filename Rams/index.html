@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>RAL Forms — RAMS</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:sans-serif;background:#f9fafb;padding:16px;}
+  input,textarea,select,button{font-family:sans-serif;}
+  input[type=text],input[type=date],textarea,select{width:100%;padding:8px 10px;border-radius:6px;border:1px solid #e5e7eb;font-size:13px;color:#111827;background:#fff;outline:none;}
+  input[type=text]:focus,textarea:focus{border-color:#2563EB;}
+  textarea{resize:vertical;}
+  button{cursor:pointer;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script type="text/babel">
+const { useState } = React;
+const BG="#f9fafb",WHITE="#ffffff",BORDER="#e5e7eb",TEXT="#111827",MUTED="#6b7280",BLUE="#2563EB",LBLUE="#EFF6FF";
+
+function Field({label, value, onChange, placeholder, multiline, rows=3}){
+  return(
+    <div style={{marginBottom:12}}>
+      {label&&<div style={{fontSize:12,color:MUTED,marginBottom:4,fontWeight:500}}>{label}</div>}
+      {multiline
+        ?<textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={rows} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:`1px solid ${BORDER}`,fontSize:13,color:TEXT,resize:"vertical",background:WHITE}}/>
+        :<input type="text" value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:`1px solid ${BORDER}`,fontSize:13,color:TEXT,background:WHITE}}/>
+      }
+    </div>
+  );
+}
+
+function Section({num, title, children}){
+  return(
+    <div style={{marginBottom:20,background:WHITE,borderRadius:10,border:`1px solid ${BORDER}`,overflow:"hidden"}}>
+      <div style={{background:"#111827",padding:"10px 16px",display:"flex",alignItems:"center",gap:10}}>
+        <span style={{background:BLUE,color:WHITE,borderRadius:"50%",width:24,height:24,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,flexShrink:0}}>{num}</span>
+        <span style={{color:WHITE,fontWeight:600,fontSize:14}}>{title}</span>
+      </div>
+      <div style={{padding:16}}>{children}</div>
+    </div>
+  );
+}
+
+function App(){
+  const [logo, setLogo] = useState("ACORED");
+  const [form, setForm] = useState({
+    projectName:"",date:"",location:"",client:"",company:"",technicians:"",teamLeader:"",
+    description:"",equipment:"",method:"",emergency:"",ppe:""
+  });
+  const [hazards, setHazards] = useState([{hazard:"",risk:"",control:""}]);
+  const [signers, setSigners] = useState([{initials:"",signed:false}]);
+  const [generating, setGenerating] = useState(false);
+
+  const set = k => v => setForm(p=>({...p,[k]:v}));
+  const addHazard = () => setHazards(p=>[...p,{hazard:"",risk:"",control:""}]);
+  const removeHazard = i => setHazards(p=>p.filter((_,j)=>j!==i));
+  const setHz = (i,k,v) => setHazards(p=>p.map((r,j)=>j===i?{...r,[k]:v}:r));
+  const addSigner = () => setSigners(p=>[...p,{initials:"",signed:false}]);
+  const removeSigner = i => setSigners(p=>p.filter((_,j)=>j!==i));
+  const setSgn = (i,k,v) => setSigners(p=>p.map((s,j)=>j===i?{...s,[k]:v}:s));
+  const allSigned = signers.every(s=>s.signed&&s.initials.trim());
+
+  const download = () => {
+    if(!allSigned){alert("All technicians must add initials and sign off before downloading.");return;}
+    setGenerating(true);
+    const ref = "RAL-"+Date.now().toString().slice(-6);
+    const today = new Date().toLocaleDateString("en-NZ");
+    const hRows = hazards.map(h=>`<tr><td style="padding:8px;border:1px solid #d1d5db;font-size:12px;">${h.hazard||"—"}</td><td style="padding:8px;border:1px solid #d1d5db;font-size:12px;">${h.risk||"—"}</td><td style="padding:8px;border:1px solid #d1d5db;font-size:12px;">${h.control||"—"}</td></tr>`).join("");
+    const sRows = signers.map((s,i)=>`<div style="display:inline-block;margin:8px 20px 8px 0;text-align:center;"><div style="font-size:36px;font-weight:900;font-family:Georgia,serif;border-bottom:2px solid #111;padding:0 16px 4px;min-width:80px;">${s.initials.toUpperCase()}</div><div style="font-size:10px;color:#6b7280;margin-top:4px;">Technician ${i+1}</div></div>`).join("");
+
+    const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"/>
+<style>
+body{font-family:Arial,sans-serif;margin:0;padding:32px;color:#111;font-size:13px;line-height:1.6;}
+h2{font-size:15px;font-weight:700;margin:24px 0 6px;border-bottom:2px solid #111;padding-bottom:4px;}
+.lbl{color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;}
+.val{color:#2563EB;font-weight:500;}
+table{width:100%;border-collapse:collapse;margin-top:8px;}
+th{background:#111827;color:white;padding:8px;font-size:12px;text-align:left;border:1px solid #111;}
+.warn{background:#FEF9C3;border:1px solid #EAB308;padding:10px;border-radius:6px;font-size:12px;margin:12px 0;}
+.sign-box{margin-top:16px;padding:16px;border:2px solid #111;border-radius:8px;}
+.foot{margin-top:32px;font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:12px;}
+@media print{body{padding:20px;}}
+</style></head><body>
+<div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:16px;border-bottom:3px solid #111;">
+  <img src="acored-logo.png" alt="ACORED" style="height:56px;object-fit:contain;"/>
+  <div>
+    <div style="font-size:24px;font-weight:900;letter-spacing:1px;">RAMS</div>
+    <div style="font-size:12px;color:#6b7280;">Rope Access Method Statement</div>
+  </div>
+  <div style="margin-left:auto;text-align:right;font-size:11px;color:#6b7280;">
+    <div>Ref: ${ref}</div><div>Generated: ${today}</div>
+  </div>
+</div>
+
+<h2>1. Project Details</h2>
+<div><span class="lbl">Project Name: </span><span class="val">${form.projectName||"—"}</span></div>
+<div><span class="lbl">Date: </span><span class="val">${form.date||"—"}</span></div>
+<div><span class="lbl">Location: </span><span class="val">${form.location||"—"}</span></div>
+<div><span class="lbl">Client / Manager: </span><span class="val">${form.client||"—"}</span></div>
+<div><span class="lbl">Company: </span><span class="val">${form.company||"—"}</span></div>
+<div><span class="lbl">Technicians: </span><span class="val">${form.technicians||"—"}</span></div>
+<div><span class="lbl">Team Leader: </span><span class="val">${form.teamLeader||"—"}</span></div>
+
+<h2>2. Description of Work</h2>
+<p style="color:#2563EB;">${(form.description||"—").replace(/\n/g,"<br/>")}</p>
+
+<h2>3. Specific Rope Access Equipment</h2>
+<p style="color:#2563EB;">${(form.equipment||"—").replace(/\n/g,"<br/>")}</p>
+
+<h2>4. Method Statement</h2>
+<p style="color:#2563EB;">${(form.method||"—").replace(/\n/g,"<br/>")}</p>
+
+<h2>5. Risk Assessment</h2>
+<table><thead><tr>
+  <th style="width:33%">Hazard</th><th style="width:33%">Risk</th><th style="width:34%">Control</th>
+</tr></thead><tbody>${hRows}</tbody></table>
+
+<h2>6. Emergency / Rescue Plan</h2>
+<p style="color:#2563EB;">${(form.emergency||"—").replace(/\n/g,"<br/>")}</p>
+
+<h2>7. PPE for this Specific Job</h2>
+<p style="color:#2563EB;">${(form.ppe||"—").replace(/\n/g,"<br/>")}</p>
+
+<h2>8. Sign Off</h2>
+<div class="warn">This RAMS must reflect the actual work being carried out on site. If the scope of work, equipment, hazards, or work method changes, this document must be updated and communicated to all technicians before work continues.</div>
+<div class="sign-box">
+  <div style="font-size:12px;color:#6b7280;margin-bottom:8px;">Technician initials:</div>
+  ${sRows}
+  <div style="font-size:11px;color:#6b7280;margin-top:12px;">Signed off: ${today}</div>
+</div>
+<div class="foot">Document reference: ${ref} · ${logo} RAMS · Generated by RAL Forms</div>
+</body></html>`;
+
+    const blob = new Blob([html],{type:"text/html"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href=url; a.download=`RAMS-${(form.projectName||"document").replace(/\s+/g,"-")}-${ref}.html`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setTimeout(()=>setGenerating(false),1000);
+  };
+
+  return(
+    <div style={{fontFamily:"sans-serif",background:BG,minHeight:"100vh"}}>
+      {/* Header */}
+      <div style={{background:WHITE,borderRadius:12,border:`1px solid ${BORDER}`,padding:"14px 20px",marginBottom:18,display:"flex",alignItems:"center",gap:16}}>
+        <img src="acored-logo.png" alt="ACORED" style={{height:52,objectFit:"contain",flexShrink:0}}/>
+        <div>
+          <div style={{fontSize:22,fontWeight:900,color:TEXT,letterSpacing:1}}>RAMS</div>
+          <div style={{fontSize:12,color:MUTED}}>Rope Access Method Statement</div>
+        </div>
+        <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontSize:12,color:MUTED}}>Logo:</span>
+          <select value={logo} onChange={e=>setLogo(e.target.value)} style={{padding:"4px 10px",borderRadius:6,border:`1px solid ${BORDER}`,fontSize:13,background:WHITE,color:TEXT}}>
+            <option value="ACORED">ACORED</option>
+          </select>
+        </div>
+      </div>
+
+      {/* S1 */}
+      <Section num="1" title="Project Details">
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Field label="Project Name" value={form.projectName} onChange={set("projectName")} placeholder="e.g. 80 Broadway"/>
+          <Field label="Date" value={form.date} onChange={set("date")} placeholder="e.g. 7/04/26"/>
+          <Field label="Location" value={form.location} onChange={set("location")} placeholder="Full address"/>
+          <Field label="Client (Manager) & Contact" value={form.client} onChange={set("client")} placeholder="Name and phone number/s"/>
+          <Field label="Company" value={form.company} onChange={set("company")} placeholder="Company name"/>
+          <Field label="Team Leader Assigned" value={form.teamLeader} onChange={set("teamLeader")} placeholder="Name"/>
+        </div>
+        <Field label="Technicians Involved" value={form.technicians} onChange={set("technicians")} placeholder="Names separated by commas"/>
+      </Section>
+
+      {/* S2 */}
+      <Section num="2" title="Description of Work">
+        <div style={{fontSize:12,color:MUTED,marginBottom:8,fontStyle:"italic"}}>Brief explanation of the task</div>
+        <Field value={form.description} onChange={set("description")} placeholder="Describe the work..." multiline rows={4}/>
+      </Section>
+
+      {/* S3 */}
+      <Section num="3" title="Specific Rope Access Equipment to be Used">
+        <Field value={form.equipment} onChange={set("equipment")} placeholder="List all rope access equipment..." multiline rows={3}/>
+      </Section>
+
+      {/* S4 */}
+      <Section num="4" title="Method Statement">
+        <div style={{fontSize:12,color:MUTED,marginBottom:8,fontStyle:"italic"}}>How the work will be done</div>
+        <Field value={form.method} onChange={set("method")} placeholder="Step by step method..." multiline rows={5}/>
+      </Section>
+
+      {/* S5 Hazard Table */}
+      <Section num="5" title="Risk Assessment">
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",marginBottom:12}}>
+            <thead>
+              <tr>
+                {["Hazard","Risk","Control"].map(h=>(
+                  <th key={h} style={{background:"#111827",color:WHITE,padding:"10px 12px",fontSize:12,fontWeight:600,textAlign:"left",border:"1px solid #1f2937"}}>{h}</th>
+                ))}
+                <th style={{background:"#111827",width:40,border:"1px solid #1f2937"}}/>
+              </tr>
+            </thead>
+            <tbody>
+              {hazards.map((row,i)=>(
+                <tr key={i} style={{background:i%2===0?WHITE:"#f9fafb"}}>
+                  {["hazard","risk","control"].map(k=>(
+                    <td key={k} style={{padding:6,border:`1px solid ${BORDER}`,verticalAlign:"top"}}>
+                      <textarea value={row[k]} onChange={e=>setHz(i,k,e.target.value)}
+                        placeholder={k.charAt(0).toUpperCase()+k.slice(1)+"..."} rows={2}
+                        style={{width:"100%",border:"none",outline:"none",resize:"vertical",fontSize:12,background:"transparent",color:TEXT}}/>
+                    </td>
+                  ))}
+                  <td style={{padding:6,border:`1px solid ${BORDER}`,textAlign:"center",verticalAlign:"middle"}}>
+                    {hazards.length>1&&(
+                      <button onClick={()=>removeHazard(i)} style={{background:"#FCEBEB",color:"#991B1B",border:"none",borderRadius:4,padding:"2px 8px",fontSize:16,fontWeight:700}}>×</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <button onClick={addHazard} style={{background:LBLUE,color:BLUE,border:"1px solid #BFDBFE",borderRadius:6,padding:"6px 16px",fontSize:12,fontWeight:600}}>+ Add row</button>
+      </Section>
+
+      {/* S6 */}
+      <Section num="6" title="Emergency / Rescue Plan">
+        <Field value={form.emergency} onChange={set("emergency")} placeholder="Describe emergency and rescue procedures..." multiline rows={4}/>
+      </Section>
+
+      {/* S7 */}
+      <Section num="7" title="PPE for this Specific Job">
+        <Field value={form.ppe} onChange={set("ppe")} placeholder="List all required PPE..." multiline rows={3}/>
+      </Section>
+
+      {/* S8 Sign Off */}
+      <Section num="8" title="Sign Off">
+        <div style={{background:"#FEF9C3",border:"1px solid #EAB308",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#854F0B",marginBottom:16}}>
+          This RAMS must reflect the actual work being carried out on site. If the scope of work, equipment, hazards, or work method changes, this document must be updated and communicated to all technicians before work continues.
+        </div>
+        {signers.map((s,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"flex-end",gap:12,flexWrap:"wrap",marginBottom:12,padding:12,background:"#f9fafb",borderRadius:8,border:`1px solid ${BORDER}`}}>
+            <div style={{flex:"0 0 130px"}}>
+              <div style={{fontSize:12,color:MUTED,marginBottom:4,fontWeight:500}}>Technician {i+1} initials</div>
+              <input type="text" value={s.initials} onChange={e=>setSgn(i,"initials",e.target.value.slice(0,4).toUpperCase())}
+                placeholder="e.g. LG" maxLength={4}
+                style={{width:"100%",padding:"8px 12px",borderRadius:6,border:`2px solid ${s.signed?"#16a34a":BORDER}`,fontSize:26,fontWeight:900,fontFamily:"Georgia,serif",color:TEXT,textAlign:"center",letterSpacing:6,background:WHITE}}/>
+            </div>
+            <div style={{flex:2,minWidth:180}}>
+              <div style={{fontSize:12,color:MUTED,marginBottom:4,fontWeight:500}}>Sign off</div>
+              <div onClick={()=>setSgn(i,"signed",!s.signed)}
+                style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:s.signed?"#F0FDF4":"#f9fafb",border:`1px solid ${s.signed?"#86EFAC":BORDER}`,borderRadius:6,cursor:"pointer"}}>
+                <div style={{width:20,height:20,borderRadius:4,background:s.signed?"#16a34a":WHITE,border:`2px solid ${s.signed?"#16a34a":"#9ca3af"}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  {s.signed&&<span style={{color:WHITE,fontSize:14,fontWeight:700}}>✓</span>}
+                </div>
+                <span style={{fontSize:13,color:s.signed?"#15803d":MUTED}}>{s.signed?"Signed off":"I confirm this RAMS is accurate"}</span>
+              </div>
+            </div>
+            {signers.length>1&&(
+              <button onClick={()=>removeSigner(i)} style={{background:"#FCEBEB",color:"#991B1B",border:"none",borderRadius:6,padding:"6px 12px",fontSize:13,fontWeight:600}}>Remove</button>
+            )}
+          </div>
+        ))}
+        <button onClick={addSigner} style={{background:LBLUE,color:BLUE,border:"1px solid #BFDBFE",borderRadius:6,padding:"6px 16px",fontSize:12,fontWeight:600}}>+ Add technician initials</button>
+      </Section>
+
+      {/* Download */}
+      <div style={{textAlign:"center",marginBottom:32}}>
+        <button onClick={download} disabled={generating}
+          style={{background:allSigned?"#111827":"#9ca3af",color:WHITE,border:"none",borderRadius:10,padding:"14px 40px",fontSize:15,fontWeight:700,cursor:allSigned?"pointer":"not-allowed",width:"100%",maxWidth:400}}>
+          {generating?"Generating...":"⬇ Download RAMS as PDF"}
+        </button>
+        {!allSigned&&<div style={{fontSize:12,color:MUTED,marginTop:8}}>All technicians must add initials and sign off to enable download</div>}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
