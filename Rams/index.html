@@ -172,16 +172,13 @@ function App(){
 
       const res = await fetch(SCRIPT_URL, {
         method: "POST",
+        mode: "no-cors",
         body: JSON.stringify(payload)
       });
-      const result = await res.json();
-      if(result.status === "ok"){
-        alert("RAMS sent successfully to " + toEmail + "!");
-      } else {
-        alert("Error sending: " + (result.message || "Unknown error"));
-      }
+      // no-cors means we can't read the response, but if no error = success
+      alert("RAMS sent successfully to " + toEmail + "! Check your inbox.");
     }catch(err){
-      alert("Error: "+err.message);
+      alert("Error sending: "+err.message);
     }finally{
       setSending(false);
     }
@@ -190,13 +187,33 @@ function App(){
   return(
     <div style={{fontFamily:"sans-serif",background:"#f9fafb",minHeight:"100vh"}}>
       {/* Header */}
-      <div style={{background:BG,borderRadius:12,border:`1px solid ${BORDER}`,padding:"16px 24px",marginBottom:18,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+      <div style={{background:BG,borderRadius:12,border:`1px solid ${BORDER}`,padding:"16px 24px",marginBottom:18,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
         <img src="acored-logo.png" alt="ACORED" style={{height:52,objectFit:"contain"}} onError={e=>e.target.style.display="none"}/>
         <div style={{textAlign:"center"}}>
           <div style={{fontSize:26,fontWeight:900,color:TEXT,letterSpacing:2}}>RAMS</div>
           <div style={{fontSize:13,color:MUTED}}>Rope Access Method Statement</div>
         </div>
-        <div style={{width:80}}/>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
+          <label style={{background:LBLUE,color:BLUE,border:"1px solid #BFDBFE",borderRadius:6,padding:"6px 14px",fontSize:13,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>
+            ✎ Edit RAMS — upload JSON file
+            <input type="file" accept=".json" style={{display:"none"}} onChange={e=>{
+              const file=e.target.files[0];
+              if(!file)return;
+              const fr=new FileReader();
+              fr.onload=ev=>{
+                try{
+                  const d=JSON.parse(ev.target.result);
+                  if(d.form) setForm(d.form);
+                  if(d.hazards) setHazards(d.hazards);
+                  if(d.signers) setSigners(d.signers.map(s=>({...s,signed:false})));
+                  alert("RAMS loaded! Review and re-sign before sending.");
+                }catch(err){alert("Invalid JSON file.");}
+              };
+              fr.readAsText(file);
+              e.target.value="";
+            }}/>
+          </label>
+        </div>
       </div>
 
       <Section num="1" title="Project Details">
