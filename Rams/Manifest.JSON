@@ -1,0 +1,22 @@
+{
+  "name": "ACORED RAMS",
+  "short_name": "RAMS",
+  "description": "Rope Access Method Statement",
+  "start_url": "/Ral-rams/Rams/",
+  "display": "standalone",
+  "background_color": "#f9fafb",
+  "theme_color": "#111827",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "acored-logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "acored-logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
