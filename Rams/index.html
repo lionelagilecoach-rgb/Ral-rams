@@ -206,22 +206,33 @@ function App(){
               const fr=new FileReader();
               fr.onload=ev=>{
                 try{
-                  const d=JSON.parse(ev.target.result);
-                  if(!d.form && !d.hazards) throw new Error("Unrecognised format");
-                  // strip old fields that no longer exist in form state
+                  let raw;
+                  try{ raw=JSON.parse(ev.target.result); }
+                  catch(e){ throw new Error("File is not valid JSON"); }
+
+                  // If the file is the full email payload, the real data is inside json_data
+                  let d = raw;
+                  if(raw.json_data){
+                    try{ d = typeof raw.json_data==="string" ? JSON.parse(raw.json_data) : raw.json_data; }
+                    catch(e){ d = raw; }
+                  }
+
+                  if(!d.form && !d.hazards && !d.clients){
+                    throw new Error("No RAMS data found in this file");
+                  }
+
                   if(d.form){
                     const {client, crew, ...cleanForm} = d.form;
                     setForm(f=>({...f,...cleanForm}));
-                    // backward compat: old format had form.client as combined string
                     if(!d.clients && client){
-                      setClients([{name: client, mobile:""}]);
+                      setClients([{name:client, mobile:""}]);
                     }
                   }
                   if(d.clients && d.clients.length) setClients(d.clients);
                   if(d.hazards && d.hazards.length) setHazards(d.hazards);
                   if(d.signers && d.signers.length) setSigners(d.signers.map(s=>({...s,signed:false})));
                   alert("RAMS loaded! Review and re-sign before sending.");
-                }catch(err){alert("Could not load file: "+err.message);}
+                }catch(err){ alert("Could not load file: "+err.message); }
               };
               fr.readAsText(file);
               e.target.value="";
