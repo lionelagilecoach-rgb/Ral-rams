@@ -207,12 +207,21 @@ function App(){
               fr.onload=ev=>{
                 try{
                   const d=JSON.parse(ev.target.result);
-                  if(d.form) setForm(d.form);
-                  if(d.clients) setClients(d.clients);
-                  if(d.hazards) setHazards(d.hazards);
-                  if(d.signers) setSigners(d.signers.map(s=>({...s,signed:false})));
+                  if(!d.form && !d.hazards) throw new Error("Unrecognised format");
+                  // strip old fields that no longer exist in form state
+                  if(d.form){
+                    const {client, crew, ...cleanForm} = d.form;
+                    setForm(f=>({...f,...cleanForm}));
+                    // backward compat: old format had form.client as combined string
+                    if(!d.clients && client){
+                      setClients([{name: client, mobile:""}]);
+                    }
+                  }
+                  if(d.clients && d.clients.length) setClients(d.clients);
+                  if(d.hazards && d.hazards.length) setHazards(d.hazards);
+                  if(d.signers && d.signers.length) setSigners(d.signers.map(s=>({...s,signed:false})));
                   alert("RAMS loaded! Review and re-sign before sending.");
-                }catch(err){alert("Invalid JSON file.");}
+                }catch(err){alert("Could not load file: "+err.message);}
               };
               fr.readAsText(file);
               e.target.value="";
