@@ -66,12 +66,9 @@ function App(){
   const [ccEmail,setCcEmail]=useState("cory@acored.co.nz");
 
   const set=k=>v=>setForm(p=>({...p,[k]:v}));
-
-  // Clients
   const addClient=()=>setClients(p=>[...p,{name:"",mobile:""}]);
   const removeClient=i=>setClients(p=>p.filter((_,j)=>j!==i));
   const setClient=(i,k,v)=>setClients(p=>p.map((c,j)=>j===i?{...c,[k]:v}:c));
-
   const addHazard=()=>setHazards(p=>[...p,{hazard:"",risk:"",control:""}]);
   const removeHazard=i=>setHazards(p=>p.filter((_,j)=>j!==i));
   const setHz=(i,k,v)=>setHazards(p=>p.map((r,j)=>j===i?{...r,[k]:v}:r));
@@ -190,7 +187,6 @@ function App(){
 
   return(
     <div style={{fontFamily:"sans-serif",background:"#f9fafb",minHeight:"100vh"}}>
-      {/* Header */}
       <div style={{background:BG,borderRadius:12,border:`1px solid ${BORDER}`,padding:"16px 24px",marginBottom:18,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
         <img src="acored-logo.png" alt="ACORED" style={{height:52,objectFit:"contain"}} onError={e=>e.target.style.display="none"}/>
         <div style={{textAlign:"center"}}>
@@ -209,18 +205,14 @@ function App(){
                   let raw;
                   try{ raw=JSON.parse(ev.target.result); }
                   catch(e){ throw new Error("File is not valid JSON"); }
-
-                  // If the file is the full email payload, the real data is inside json_data
                   let d = raw;
                   if(raw.json_data){
                     try{ d = typeof raw.json_data==="string" ? JSON.parse(raw.json_data) : raw.json_data; }
                     catch(e){ d = raw; }
                   }
-
                   if(!d.form && !d.hazards && !d.clients){
                     throw new Error("No RAMS data found in this file");
                   }
-
                   if(d.form){
                     const {client, crew, ...cleanForm} = d.form;
                     setForm(f=>({...f,...cleanForm}));
@@ -242,35 +234,29 @@ function App(){
       </div>
 
       <Section num="1" title="Project Details">
-        {/* Row 1: Project Name | Date */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Field label="Project Name" value={form.projectName} onChange={set("projectName")} placeholder=""/>
           <Field label="Date" value={form.date} onChange={set("date")} placeholder="e.g. 8/04/26"/>
         </div>
-        {/* Row 2: Location | Workface Notification Number */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Field label="Location" value={form.location} onChange={set("location")} placeholder="Full address"/>
           <Field label="Workface Notification Number" value={form.workfaceNumber} onChange={set("workfaceNumber")} placeholder="e.g. WFN-001"/>
         </div>
-        {/* Row 3: Technicians Involved (auto-resize) | Team Leader */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,alignItems:"start"}}>
           <div style={{marginBottom:12}}>
             <div style={{fontSize:13,color:MUTED,marginBottom:4,fontWeight:500}}>Technicians Involved</div>
             <textarea value={form.technicians} onChange={e=>{set("technicians")(e.target.value);e.target.style.height="auto";e.target.style.height=e.target.scrollHeight+"px";}}
-              placeholder="Names separated by commas"
-              rows={1}
+              placeholder="Names separated by commas" rows={1}
               style={{width:"100%",padding:"10px 12px",borderRadius:6,border:`1px solid ${BORDER}`,color:TEXT,background:"#fff",outline:"none",resize:"none",overflow:"hidden",lineHeight:1.5}}/>
           </div>
           <Field label="Team Leader" value={form.teamLeader} onChange={set("teamLeader")} placeholder="Name"/>
         </div>
-        {/* Row 4: Company | Clients */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,alignItems:"start"}}>
           <Field label="Company" value={form.company} onChange={set("company")} placeholder="Company name"/>
-          {/* RIGHT: clients */}
           <div>
             {clients.map((c,i)=>(
               <div key={i} style={{marginBottom:8,padding:10,background:"#f9fafb",borderRadius:8,border:`1px solid ${BORDER}`}}>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:8,alignItems:"end"}}>
                   <div>
                     <div style={{fontSize:13,color:MUTED,marginBottom:4,fontWeight:500}}>
                       {clients.length>1?`Client ${i+1}`:"Client (name)"}
@@ -283,10 +269,11 @@ function App(){
                     </div>
                     <input type="text" value={c.mobile} onChange={e=>setClient(i,"mobile",e.target.value)} placeholder="+64 21 000 0000"/>
                   </div>
+                  {clients.length>1
+                    ? <button onClick={()=>removeClient(i)} style={{background:"#FCEBEB",color:"#991B1B",border:"none",borderRadius:4,padding:"2px 8px",fontSize:16,fontWeight:700,marginBottom:1}}>×</button>
+                    : <div/>
+                  }
                 </div>
-                {clients.length>1&&(
-                  <button onClick={()=>removeClient(i)} style={{marginTop:6,background:"#FCEBEB",color:"#991B1B",border:"none",borderRadius:5,padding:"3px 10px",fontSize:12,fontWeight:600}}>Remove</button>
-                )}
               </div>
             ))}
             <button onClick={addClient} style={{background:LBLUE,color:BLUE,border:"1px solid #BFDBFE",borderRadius:6,padding:"6px 14px",fontSize:13,fontWeight:600}}>+ Add client</button>
