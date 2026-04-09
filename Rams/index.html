@@ -23,6 +23,7 @@ button{cursor:pointer;}
 <script type="text/babel">
 const {useState} = React;
 const BG="#ffffff",BORDER="#e5e7eb",TEXT="#111827",MUTED="#6b7280",BLUE="#2563EB",LBLUE="#EFF6FF";
+const PRIMARY_EMAIL = "ropeaccessral@gmail.com";
 
 function Field({label,value,onChange,placeholder,multiline,rows=3}){
   return(
@@ -52,13 +53,25 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxC9zaPvtQuyl0OIln5y
 
 function App(){
   const todayStr = new Date().toLocaleDateString("en-NZ");
-  const [form,setForm]=useState({projectName:"",date:todayStr,location:"",client:"",company:"",technicians:"",teamLeader:"",description:"",equipment:"",method:"",emergency:"",ppe:""});
+  const [form,setForm]=useState({
+    projectName:"",date:todayStr,location:"",workfaceNumber:"",
+    company:"",technicians:"",teamLeader:"",
+    description:"",equipment:"",method:"",emergency:"",ppe:""
+  });
+  const [clients,setClients]=useState([{name:"",mobile:""}]);
   const [hazards,setHazards]=useState([{hazard:"",risk:"",control:""}]);
   const [signers,setSigners]=useState([{initials:"",signed:false}]);
   const [generating,setGenerating]=useState(false);
   const [sending,setSending]=useState(false);
-  const [toEmail,setToEmail]=useState("lionelagilecoach@gmail.com");
+  const [ccEmail,setCcEmail]=useState("cory@acored.co.nz");
+
   const set=k=>v=>setForm(p=>({...p,[k]:v}));
+
+  // Clients
+  const addClient=()=>setClients(p=>[...p,{name:"",mobile:""}]);
+  const removeClient=i=>setClients(p=>p.filter((_,j)=>j!==i));
+  const setClient=(i,k,v)=>setClients(p=>p.map((c,j)=>j===i?{...c,[k]:v}:c));
+
   const addHazard=()=>setHazards(p=>[...p,{hazard:"",risk:"",control:""}]);
   const removeHazard=i=>setHazards(p=>p.filter((_,j)=>j!==i));
   const setHz=(i,k,v)=>setHazards(p=>p.map((r,j)=>j===i?{...r,[k]:v}:r));
@@ -74,7 +87,6 @@ function App(){
     const pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
     const W=210,M=15,CW=W-M*2;
     let y=M;
-
     try{
       const res=await fetch("acored-logo.png");
       if(res.ok){
@@ -83,7 +95,6 @@ function App(){
         pdf.addImage(ld,"PNG",M,y,28,14);
       }
     }catch(e){}
-
     pdf.setFont("helvetica","bold");pdf.setFontSize(24);pdf.setTextColor(17,24,39);
     pdf.text("RAMS",W/2,y+9,{align:"center"});
     pdf.setFont("helvetica","normal");pdf.setFontSize(10);pdf.setTextColor(100,100,100);
@@ -93,20 +104,25 @@ function App(){
     pdf.text(today,W-M,y+11,{align:"right"});
     y+=22;
     pdf.setDrawColor(17,24,39);pdf.setLineWidth(0.8);pdf.line(M,y,W-M,y);y+=7;
-
     const sec=(n,t)=>{if(y>260){pdf.addPage();y=M;}pdf.setFont("helvetica","bold");pdf.setFontSize(12);pdf.setTextColor(17,24,39);pdf.text(n+". "+t,M,y);y+=2;pdf.setLineWidth(0.4);pdf.line(M,y,W-M,y);y+=5;};
     const field=(label,val)=>{if(y>272){pdf.addPage();y=M;}pdf.setFont("helvetica","bold");pdf.setFontSize(9);pdf.setTextColor(100,100,100);pdf.text(label.toUpperCase()+": ",M,y);const lw=pdf.getTextWidth(label.toUpperCase()+": ");pdf.setFont("helvetica","normal");pdf.setTextColor(37,99,235);const lines=pdf.splitTextToSize(val||"—",CW-lw);pdf.text(lines,M+lw,y);y+=lines.length*5;};
     const body=(txt)=>{if(y>272){pdf.addPage();y=M;}pdf.setFont("helvetica","normal");pdf.setFontSize(10);pdf.setTextColor(37,99,235);const lines=pdf.splitTextToSize(txt||"—",CW);lines.forEach(l=>{if(y>275){pdf.addPage();y=M;}pdf.text(l,M,y);y+=5;});y+=2;};
-
     sec(1,"Project Details");
-    field("Project Name",form.projectName);field("Date",form.date);
-    field("Location",form.location);field("Client / Manager",form.client);
-    field("Company",form.company);field("Technicians",form.technicians);
-    field("Team Leader",form.teamLeader);y+=2;
+    field("Project Name",form.projectName);
+    field("Date",form.date);
+    field("Location",form.location);
+    field("Workface Notification No.",form.workfaceNumber);
+    field("Company",form.company);
+    clients.forEach((c,i)=>{
+      field(clients.length>1?`Client ${i+1}`:"Client",c.name);
+      field(clients.length>1?`Mobile ${i+1}`:"Mobile",c.mobile);
+    });
+    field("Technicians",form.technicians);
+    field("Team Leader",form.teamLeader);
+    y+=2;
     sec(2,"Description of Work");body(form.description);
     sec(3,"Specific Rope Access Equipment");body(form.equipment);
     sec(4,"Method Statement");body(form.method);
-
     sec(5,"Risk Assessment");
     if(y>220){pdf.addPage();y=M;}
     const cw=CW/3;
@@ -115,10 +131,8 @@ function App(){
     pdf.text("Hazard",M+2,y+5.5);pdf.text("Risk",M+cw+2,y+5.5);pdf.text("Control",M+cw*2+2,y+5.5);
     y+=8;
     hazards.forEach((h,i)=>{if(y>268){pdf.addPage();y=M;}pdf.setFillColor(i%2===0?255:249,249,249);pdf.rect(M,y,CW,10,"F");pdf.setDrawColor(209,213,219);pdf.setLineWidth(0.2);pdf.rect(M,y,CW,10,"S");pdf.line(M+cw,y,M+cw,y+10);pdf.line(M+cw*2,y,M+cw*2,y+10);pdf.setFont("helvetica","normal");pdf.setFontSize(9);pdf.setTextColor(17,24,39);pdf.text(pdf.splitTextToSize(h.hazard||"—",cw-4)[0],M+2,y+6.5);pdf.text(pdf.splitTextToSize(h.risk||"—",cw-4)[0],M+cw+2,y+6.5);pdf.text(pdf.splitTextToSize(h.control||"—",cw-4)[0],M+cw*2+2,y+6.5);y+=10;});y+=4;
-
     sec(6,"Emergency / Rescue Plan");body(form.emergency);
     sec(7,"PPE for this Specific Job");body(form.ppe);
-
     if(y>200){pdf.addPage();y=M;}
     sec(8,"Sign Off");
     pdf.setFillColor(254,249,195);pdf.setDrawColor(234,179,8);pdf.setLineWidth(0.3);
@@ -127,7 +141,6 @@ function App(){
     pdf.rect(M,y,CW,wh,"FD");
     pdf.setFont("helvetica","normal");pdf.setFontSize(8);pdf.setTextColor(133,79,11);
     pdf.text(wt,M+2,y+5);y+=wh+4;
-
     if(y>240){pdf.addPage();y=M;}
     pdf.setDrawColor(17,24,39);pdf.setLineWidth(0.5);pdf.rect(M,y,CW,36,"S");
     pdf.setFont("helvetica","normal");pdf.setFontSize(9);pdf.setTextColor(100,100,100);
@@ -136,10 +149,8 @@ function App(){
     signers.forEach((s,i)=>{pdf.setFont("times","bold");pdf.setFontSize(22);pdf.setTextColor(17,24,39);pdf.text(s.initials.toUpperCase(),sx,y+20);pdf.setLineWidth(0.4);pdf.line(sx,y+22,sx+20,y+22);pdf.setFont("helvetica","normal");pdf.setFontSize(8);pdf.setTextColor(100,100,100);pdf.text("Tech "+(i+1),sx,y+27);sx+=26;});
     pdf.setFontSize(8);pdf.setTextColor(100,100,100);
     pdf.text("Signed off: "+today,M+3,y+33);y+=40;
-
     pdf.setFont("helvetica","normal");pdf.setFontSize(8);pdf.setTextColor(150,150,150);
     pdf.text("Document reference: "+ref+" · ACORED RAMS · Generated by RAL Forms",M,287);
-
     return {pdf, ref, today};
   };
 
@@ -155,28 +166,21 @@ function App(){
 
   const sendEmail = async () => {
     if(!allSigned){alert("All technicians must add initials and sign off before sending.");return;}
-    if(!toEmail.trim()){alert("Please enter a recipient email.");return;}
     setSending(true);
     try{
       const {pdf,ref} = await buildPDF();
       const pdfBase64 = pdf.output("datauristring").split(",")[1];
-      const jsonData = JSON.stringify({form, hazards, signers, ref}, null, 2);
-
+      const jsonData = JSON.stringify({form, clients, hazards, signers, ref}, null, 2);
       const payload = {
-        to_email: toEmail,
+        to_email: ccEmail.trim() || PRIMARY_EMAIL,
+        cc_email: PRIMARY_EMAIL,
         project_name: form.projectName || "RAMS",
         ref: ref,
         pdf_base64: pdfBase64,
         json_data: jsonData
       };
-
-      const res = await fetch(SCRIPT_URL, {
-        method: "POST",
-        mode: "no-cors",
-        body: JSON.stringify(payload)
-      });
-      // no-cors means we can't read the response, but if no error = success
-      alert("RAMS sent successfully to " + toEmail + "! Check your inbox.");
+      await fetch(SCRIPT_URL, {method:"POST",mode:"no-cors",body:JSON.stringify(payload)});
+      alert("RAMS sent successfully to " + (ccEmail.trim() || PRIMARY_EMAIL) + "! Check your inbox.");
     }catch(err){
       alert("Error sending: "+err.message);
     }finally{
@@ -204,6 +208,7 @@ function App(){
                 try{
                   const d=JSON.parse(ev.target.result);
                   if(d.form) setForm(d.form);
+                  if(d.clients) setClients(d.clients);
                   if(d.hazards) setHazards(d.hazards);
                   if(d.signers) setSigners(d.signers.map(s=>({...s,signed:false})));
                   alert("RAMS loaded! Review and re-sign before sending.");
@@ -217,31 +222,69 @@ function App(){
       </div>
 
       <Section num="1" title="Project Details">
+        {/* Row 1: Project Name | Date */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Field label="Project Name" value={form.projectName} onChange={set("projectName")} placeholder=""/>
-          <Field label="Date" value={form.date} onChange={set("date")} placeholder="e.g. 7/04/26"/>
+          <Field label="Date" value={form.date} onChange={set("date")} placeholder="e.g. 8/04/26"/>
+        </div>
+        {/* Row 2: Location | Workface Notification Number */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Field label="Location" value={form.location} onChange={set("location")} placeholder="Full address"/>
-          <Field label="Client (Manager) & Contact" value={form.client} onChange={set("client")} placeholder="Name and phone"/>
-          <Field label="Company" value={form.company} onChange={set("company")} placeholder="Company name"/>
+          <Field label="Workface Notification Number" value={form.workfaceNumber} onChange={set("workfaceNumber")} placeholder="e.g. WFN-001"/>
+        </div>
+        {/* Row 3: Technicians Involved (auto-resize) | Team Leader */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,alignItems:"start"}}>
+          <div style={{marginBottom:12}}>
+            <div style={{fontSize:13,color:MUTED,marginBottom:4,fontWeight:500}}>Technicians Involved</div>
+            <textarea value={form.technicians} onChange={e=>{set("technicians")(e.target.value);e.target.style.height="auto";e.target.style.height=e.target.scrollHeight+"px";}}
+              placeholder="Names separated by commas"
+              rows={1}
+              style={{width:"100%",padding:"10px 12px",borderRadius:6,border:`1px solid ${BORDER}`,color:TEXT,background:"#fff",outline:"none",resize:"none",overflow:"hidden",lineHeight:1.5}}/>
+          </div>
           <Field label="Team Leader" value={form.teamLeader} onChange={set("teamLeader")} placeholder="Name"/>
         </div>
-        <Field label="Technicians Involved" value={form.technicians} onChange={set("technicians")} placeholder="Names separated by commas"/>
+        {/* Row 4: Company | Clients */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,alignItems:"start"}}>
+          <Field label="Company" value={form.company} onChange={set("company")} placeholder="Company name"/>
+          {/* RIGHT: clients */}
+          <div>
+            {clients.map((c,i)=>(
+              <div key={i} style={{marginBottom:8,padding:10,background:"#f9fafb",borderRadius:8,border:`1px solid ${BORDER}`}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  <div>
+                    <div style={{fontSize:13,color:MUTED,marginBottom:4,fontWeight:500}}>
+                      {clients.length>1?`Client ${i+1}`:"Client (name)"}
+                    </div>
+                    <input type="text" value={c.name} onChange={e=>setClient(i,"name",e.target.value)} placeholder="Full name"/>
+                  </div>
+                  <div>
+                    <div style={{fontSize:13,color:MUTED,marginBottom:4,fontWeight:500}}>
+                      {clients.length>1?`Mobile ${i+1}`:"Mobile"}
+                    </div>
+                    <input type="text" value={c.mobile} onChange={e=>setClient(i,"mobile",e.target.value)} placeholder="+64 21 000 0000"/>
+                  </div>
+                </div>
+                {clients.length>1&&(
+                  <button onClick={()=>removeClient(i)} style={{marginTop:6,background:"#FCEBEB",color:"#991B1B",border:"none",borderRadius:5,padding:"3px 10px",fontSize:12,fontWeight:600}}>Remove</button>
+                )}
+              </div>
+            ))}
+            <button onClick={addClient} style={{background:LBLUE,color:BLUE,border:"1px solid #BFDBFE",borderRadius:6,padding:"6px 14px",fontSize:13,fontWeight:600}}>+ Add client</button>
+          </div>
+        </div>
       </Section>
 
       <Section num="2" title="Description of Work">
         <div style={{fontSize:13,color:MUTED,marginBottom:8,fontStyle:"italic"}}>Brief explanation of the task</div>
         <Field value={form.description} onChange={set("description")} placeholder="Describe the work..." multiline rows={4}/>
       </Section>
-
       <Section num="3" title="Specific Rope Access Equipment to be Used">
         <Field value={form.equipment} onChange={set("equipment")} placeholder="List all rope access equipment..." multiline rows={3}/>
       </Section>
-
       <Section num="4" title="Method Statement">
         <div style={{fontSize:13,color:MUTED,marginBottom:8,fontStyle:"italic"}}>How the work will be done</div>
         <Field value={form.method} onChange={set("method")} placeholder="Step by step method..." multiline rows={5}/>
       </Section>
-
       <Section num="5" title="Risk Assessment">
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",marginBottom:12}}>
@@ -273,15 +316,12 @@ function App(){
         </div>
         <button onClick={addHazard} style={{background:LBLUE,color:BLUE,border:"1px solid #BFDBFE",borderRadius:6,padding:"6px 16px",fontSize:13,fontWeight:600}}>+ Add row</button>
       </Section>
-
       <Section num="6" title="Emergency / Rescue Plan">
         <Field value={form.emergency} onChange={set("emergency")} placeholder="Describe emergency and rescue procedures..." multiline rows={4}/>
       </Section>
-
       <Section num="7" title="PPE for this Specific Job">
         <Field value={form.ppe} onChange={set("ppe")} placeholder="List all required PPE..." multiline rows={3}/>
       </Section>
-
       <Section num="8" title="Sign Off">
         <div style={{background:"#FEF9C3",border:"1px solid #EAB308",borderRadius:6,padding:"10px 14px",fontSize:13,color:"#854F0B",marginBottom:16}}>
           This RAMS must reflect the actual work being carried out on site. If the scope of work, equipment, hazards, or work method changes, this document must be updated and communicated to all technicians before work continues.
@@ -310,16 +350,14 @@ function App(){
         <button onClick={addSigner} style={{background:LBLUE,color:BLUE,border:"1px solid #BFDBFE",borderRadius:6,padding:"6px 16px",fontSize:13,fontWeight:600}}>+ Add technician initials</button>
       </Section>
 
-      <div style={{textAlign:"center",marginBottom:32}}>
-        {/* Email field */}
-        <div style={{marginBottom:12,maxWidth:400,margin:"0 auto 12px"}}>
-          <div style={{fontSize:13,color:MUTED,marginBottom:4,textAlign:"left"}}>Send to email</div>
-          <input type="text" value={toEmail} onChange={e=>setToEmail(e.target.value)}
+      <div style={{marginBottom:32,maxWidth:480,margin:"0 auto 32px"}}>
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:13,color:MUTED,marginBottom:4,fontWeight:500}}>Send to email</div>
+          <input type="text" value={ccEmail} onChange={e=>setCcEmail(e.target.value)}
             placeholder="email@example.com"
             style={{width:"100%",padding:"10px 12px",borderRadius:6,border:`1px solid ${BORDER}`,fontSize:14,color:TEXT,background:BG}}/>
         </div>
-        {/* Buttons */}
-        <div style={{display:"flex",gap:10,maxWidth:400,margin:"0 auto",flexDirection:"column"}}>
+        <div style={{display:"flex",gap:10,flexDirection:"column"}}>
           <button onClick={sendEmail} disabled={sending||!allSigned}
             style={{background:allSigned?"#111827":"#9ca3af",color:"#fff",border:"none",borderRadius:10,padding:"14px 40px",fontSize:15,fontWeight:700,cursor:allSigned?"pointer":"not-allowed",width:"100%"}}>
             {sending?"Sending...":"📧 Send RAMS by email (PDF + JSON)"}
@@ -329,7 +367,7 @@ function App(){
             {generating?"Generating...":"⬇ Download PDF only"}
           </button>
         </div>
-        {!allSigned&&<div style={{fontSize:13,color:MUTED,marginTop:8}}>All technicians must add initials and sign off to enable</div>}
+        {!allSigned&&<div style={{fontSize:13,color:MUTED,marginTop:8,textAlign:"center"}}>All technicians must add initials and sign off to enable</div>}
       </div>
     </div>
   );
